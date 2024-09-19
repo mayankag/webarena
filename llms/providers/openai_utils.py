@@ -9,10 +9,13 @@ import time
 from typing import Any
 
 import aiolimiter
+from openai import OpenAI
 import openai
-import openai.error
+#import openai.error
 from tqdm.asyncio import tqdm_asyncio
 
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 def retry_with_exponential_backoff(  # type: ignore
     func,
@@ -20,7 +23,7 @@ def retry_with_exponential_backoff(  # type: ignore
     exponential_base: float = 2,
     jitter: bool = True,
     max_retries: int = 3,
-    errors: tuple[Any] = (openai.error.RateLimitError,),
+    errors: tuple[Any] = (openai.RateLimitError, openai.APIError),
 ):
     """Retry a function with exponential backoff."""
 
@@ -68,19 +71,19 @@ async def _throttled_openai_completion_acreate(
     async with limiter:
         for _ in range(3):
             try:
-                return await openai.Completion.acreate(  # type: ignore
+                return await client.completions.acreate(  # type: ignore
                     engine=engine,
                     prompt=prompt,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     top_p=top_p,
                 )
-            except openai.error.RateLimitError:
+            except openai.RateLimitError:
                 logging.warning(
                     "OpenAI API rate limit exceeded. Sleeping for 10 seconds."
                 )
                 await asyncio.sleep(10)
-            except openai.error.APIError as e:
+            except openai.APIError as e:
                 logging.warning(f"OpenAI API error: {e}")
                 break
         return {"choices": [{"message": {"content": ""}}]}
@@ -128,7 +131,7 @@ async def agenerate_from_openai_completion(
         for prompt in prompts
     ]
     responses = await tqdm_asyncio.gather(*async_responses)
-    return [x["choices"][0]["text"] for x in responses]
+    return [x.choices[0].text for x in responses]
 
 
 @retry_with_exponential_backoff
@@ -147,7 +150,7 @@ def generate_from_openai_completion(
         )
     openai.api_key = os.environ["OPENAI_API_KEY"]
     openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
-    response = openai.Completion.create(  # type: ignore
+    response = client.completions.create(  # type: ignore
         prompt=prompt,
         engine=engine,
         temperature=temperature,
@@ -170,14 +173,14 @@ async def _throttled_openai_chat_completion_acreate(
     async with limiter:
         for _ in range(3):
             try:
-                return await openai.ChatCompletion.acreate(  # type: ignore
+                return await client.chat.completions.acreate(  # type: ignore
                     model=model,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     top_p=top_p,
                 )
-            except openai.error.RateLimitError:
+            except openai.RateLimitError:
                 logging.warning(
                     "OpenAI API rate limit exceeded. Sleeping for 10 seconds."
                 )
@@ -185,7 +188,7 @@ async def _throttled_openai_chat_completion_acreate(
             except asyncio.exceptions.TimeoutError:
                 logging.warning("OpenAI API timeout. Sleeping for 10 seconds.")
                 await asyncio.sleep(10)
-            except openai.error.APIError as e:
+            except openai.APIError as e:
                 logging.warning(f"OpenAI API error: {e}")
                 break
         return {"choices": [{"message": {"content": ""}}]}
@@ -233,7 +236,7 @@ async def agenerate_from_openai_chat_completion(
         for message in messages_list
     ]
     responses = await tqdm_asyncio.gather(*async_responses)
-    return [x["choices"][0]["message"]["content"] for x in responses]
+    return [x.choices[0].message.content for x in responses]
 
 
 @retry_with_exponential_backoff
@@ -253,7 +256,7 @@ def generate_from_openai_chat_completion(
     openai.api_key = os.environ["OPENAI_API_KEY"]
     openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
 
-    response = openai.ChatCompletion.create(  # type: ignore
+    response = client.chat.completions.create(  # type: ignore
         model=model,
         messages=messages,
         temperature=temperature,
@@ -261,7 +264,7 @@ def generate_from_openai_chat_completion(
         top_p=top_p,
         stop=[stop_token] if stop_token else None,
     )
-    answer: str = response["choices"][0]["message"]["content"]
+    answer: str = response.choices[0].message.content
     return answer
 
 
