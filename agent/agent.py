@@ -70,7 +70,7 @@ class ActionType(str, Enum):
     TAB_FOCUS = "tab_focus"
     STOP = "stop"
 class LLMAction(BaseModel):
-    element_id: Optional[str] = Field(None, description="The ID of the element to interact with")
+    element_id: Optional[int] = Field(None, description="The ID of the element to interact with")
     text: Optional[str] = Field(None, description="Text to type or URL to navigate to")
     direction: Optional[Literal["up", "down"]] = Field(None, description="Scroll direction")
     key_comb: Optional[str] = Field(None, description="Key combination to press")
@@ -294,7 +294,7 @@ class CustomAgent(Agent):
         elif llm_response.action == ActionType.CLOSE_TAB:
             return create_id_based_action("close_tab")
         elif llm_response.action == ActionType.GOTO_URL:
-            return create_id_based_action(f"goto[{llm_response.action_args.url}]")
+            return create_id_based_action(f"goto[{llm_response.action_args.text}]")
         elif llm_response.action == ActionType.GO_BACK:
             return create_id_based_action("go_back")
         elif llm_response.action == ActionType.GO_FORWARD:

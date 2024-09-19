@@ -73,7 +73,7 @@ PREVIOUS ACTION: None"""
             "thought": "Let's think step-by-step. This page has a search box whose ID is [164]. According to the nominatim rule of openstreetmap, I can search for the restaurants near a location by \"restaurants near\". I can submit my typing by pressing the Enter afterwards.",
             "action": "type",
             "action_args": {
-                "element_id": "164",
+                "element_id": 164,
                 "text": "restaurants near CMU",
                 "press_enter_after": "1"
             }
