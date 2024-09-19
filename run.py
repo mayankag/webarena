@@ -342,12 +342,14 @@ def test(
             else:
                 logger.info(f"[Result] (FAIL) {config_file}")
 
+            print(f"current score: {sum(scores)} out of {len(scores)}. Pass rate: {sum(scores) / len(scores) * 100:.2f}%")
+
             if args.save_trace_enabled:
                 env.save_trace(
                     Path(args.result_dir) / "traces" / f"{task_id}.zip"
                 )
 
-        except openai.error.OpenAIError as e:
+        except openai.OpenAIError as e:
             logger.info(f"[OpenAI Error] {repr(e)}")
         except Exception as e:
             logger.info(f"[Unhandled Error] {repr(e)}]")
