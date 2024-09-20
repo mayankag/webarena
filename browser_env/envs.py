@@ -21,6 +21,7 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
+from utilities.utils import time_logger
 from .actions import Action, execute_action, get_action_space
 from .processors import ObservationHandler, ObservationMetadata
 from .utils import (
@@ -171,16 +172,19 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
     def get_page_client(self, page: Page) -> CDPSession:
         return page.client  # type: ignore
 
+    @time_logger
     def _get_obs(self) -> dict[str, Observation]:
         obs = self.observation_handler.get_observation(
             self.page, self.get_page_client(self.page)
         )
         return obs
 
+    @time_logger
     def _get_obs_metadata(self) -> dict[str, ObservationMetadata]:
         metadata = self.observation_handler.get_observation_metadata()
         return metadata
 
+    @time_logger
     @beartype
     def reset(
         self,
@@ -193,9 +197,13 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
         :param options: options for the environment. The current supported options are:
             - "storage_state": the storage state of the browser. It is a file path to a json file.
         """
+        time1 = time.time()
         super().reset(seed=seed, options=options)
         if self.reset_finished:
             self.context_manager.__exit__()
+
+        time2 = time.time()
+        print(f"Inside Reset: Time taken to reset: {time2 - time1} seconds")
 
         if options is not None and "config_file" in options:
             config_file = Path(options["config_file"])
@@ -206,10 +214,11 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
         else:
             self.setup()
         self.reset_finished = True
+        time3 = time.time()
+        print(f"Inside Reset: Time taken to setup: {time3 - time2} seconds")
 
         if self.sleep_after_execution > 0:
             time.sleep(self.sleep_after_execution)
-
         observation = self._get_obs()
         observation_metadata = self._get_obs_metadata()
         info = {
@@ -220,6 +229,7 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
 
         return (observation, info)
 
+    @time_logger
     def save_trace(self, trace_path: str | Path) -> None:
         if self.save_trace_enabled:
             self.context.tracing.stop(path=trace_path)
@@ -228,6 +238,7 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
         if self.reset_finished:
             self.context_manager.__exit__()
 
+    @time_logger
     def step(
         self, action: Action
     ) -> tuple[dict[str, Observation], float, bool, bool, dict[str, Any]]:

@@ -36,7 +36,7 @@ class AccessibilityTreeNode(TypedDict):
     backendDOMNodeId: str
     frameId: str
     bound: list[float] | None
-    union_bound: list[float] | None
+    #union_bound: list[float] | None
     offsetrect_bound: list[float] | None
 
 
@@ -50,7 +50,7 @@ class DOMNode(TypedDict):
     parentId: str
     childIds: list[str]
     cursor: int
-    union_bound: list[float] | None
+    #union_bound: list[float] | None
 
 
 class BrowserConfig(TypedDict):

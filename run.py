@@ -1,4 +1,6 @@
 """Script to run end-to-end evaluation on the benchmark"""
+from utilities.utils import time_logger
+
 import argparse
 import glob
 import json
@@ -213,7 +215,7 @@ def early_stop(
 
     return False, ""
 
-
+@time_logger
 def test(
     args: argparse.Namespace,
     agent: Agent | PromptAgent | TeacherForcingAgent,
@@ -246,6 +248,7 @@ def test(
                 config_file, args.result_dir, args.action_set_tag
             )
 
+            time1 = time.time()
             # get intent
             with open(config_file) as f:
                 _c = json.load(f)
@@ -273,6 +276,9 @@ def test(
                     config_file = f"{temp_dir}/{os.path.basename(config_file)}"
                     with open(config_file, "w") as f:
                         json.dump(_c, f)
+
+            time2 = time.time()
+            print(f"Time taken to renew cookie: {time2 - time1} seconds")
 
             logger.info(f"[Config file]: {config_file}")
             logger.info(f"[Intent]: {intent}")
@@ -415,7 +421,7 @@ def dump_config(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     args = config()
-    args.sleep_after_execution = 2.0
+    args.sleep_after_execution = 1.0
     prepare(args)
 
     test_file_list = []
@@ -432,10 +438,9 @@ if __name__ == "__main__":
         print(f"Total {len(test_file_list)} tasks left")
         args.render = False
         args.render_screenshot = True
-        args.save_trace_enabled = True
+        args.save_trace_enabled = False
 
         args.current_viewport_only = True
         dump_config(args)
-
         agent = construct_agent(args)
         test(args, agent, test_file_list)

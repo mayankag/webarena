@@ -1,8 +1,10 @@
 import json
 import re
+import time
 from collections import defaultdict
 from typing import Any, TypedDict, Union
 
+from utilities.utils import time_logger
 import numpy as np
 import numpy.typing as npt
 from gymnasium import spaces
@@ -59,6 +61,7 @@ class TextObervationProcessor(ObservationProcessor):
             create_empty_metadata()
         )  # use the store meta data of this observation type
 
+    @time_logger
     def fetch_browser_info(
         self,
         page: Page,
@@ -107,6 +110,7 @@ class TextObervationProcessor(ObservationProcessor):
         return info
 
     @staticmethod
+    @time_logger
     def get_bounding_client_rect(
         client: CDPSession, backend_node_id: str
     ) -> dict[str, Any]:
@@ -198,7 +202,7 @@ class TextObervationProcessor(ObservationProcessor):
                 "parentId": "",
                 "childIds": [],
                 "cursor": 0,
-                "union_bound": None,
+                #"union_bound": None,
             }
 
             node_type_idx = nodes["nodeType"][node_idx]
@@ -235,21 +239,21 @@ class TextObervationProcessor(ObservationProcessor):
             if cur_node["parentId"] != "-1":
                 graph[cur_node["parentId"]].append(str(cur_node["nodeId"]))
 
-            # get the bound
-            if cur_node["parentId"] == "-1":
-                cur_node["union_bound"] = [0.0, 0.0, 10.0, 10.0]
-            else:
-                response = self.get_bounding_client_rect(
-                    client, cur_node["backendNodeId"]
-                )
-                if response.get("result", {}).get("subtype", "") == "error":
-                    cur_node["union_bound"] = None
-                else:
-                    x = response["result"]["value"]["x"]
-                    y = response["result"]["value"]["y"]
-                    width = response["result"]["value"]["width"]
-                    height = response["result"]["value"]["height"]
-                    cur_node["union_bound"] = [x, y, width, height]
+            # # get the bound
+            # if cur_node["parentId"] == "-1":
+            #     cur_node["union_bound"] = [0.0, 0.0, 10.0, 10.0]
+            # else:
+            #     response = self.get_bounding_client_rect(
+            #         client, cur_node["backendNodeId"]
+            #     )
+            #     if response.get("result", {}).get("subtype", "") == "error":
+            #         cur_node["union_bound"] = None
+            #     else:
+            #         x = response["result"]["value"]["x"]
+            #         y = response["result"]["value"]["y"]
+            #         width = response["result"]["value"]["width"]
+            #         height = response["result"]["value"]["height"]
+            #         cur_node["union_bound"] = [x, y, width, height]
 
             dom_tree.append(cur_node)
 
@@ -257,63 +261,63 @@ class TextObervationProcessor(ObservationProcessor):
         for parent_id, child_ids in graph.items():
             dom_tree[int(parent_id)]["childIds"] = child_ids
 
-        # remove the nodes that are not in the current viewport
-        if current_viewport_only:
+        # # remove the nodes that are not in the current viewport
+        # if current_viewport_only:
 
-            def remove_node_in_graph(node: DOMNode) -> None:
-                # update the node information in the accessibility tree
-                node_id = node["nodeId"]
-                parent_id = node["parentId"]
-                child_ids = node["childIds"]
+        #     def remove_node_in_graph(node: DOMNode) -> None:
+        #         # update the node information in the accessibility tree
+        #         node_id = node["nodeId"]
+        #         parent_id = node["parentId"]
+        #         child_ids = node["childIds"]
 
-                # update the children of the parent node
-                assert dom_tree[int(parent_id)]["parentId"] != "[REMOVED]"
-                # remove the nodeid from parent
-                index = dom_tree[int(parent_id)]["childIds"].index(node_id)
-                dom_tree[int(parent_id)]["childIds"].pop(index)
+        #         # update the children of the parent node
+        #         assert dom_tree[int(parent_id)]["parentId"] != "[REMOVED]"
+        #         # remove the nodeid from parent
+        #         index = dom_tree[int(parent_id)]["childIds"].index(node_id)
+        #         dom_tree[int(parent_id)]["childIds"].pop(index)
 
-                # Insert children_nodeids in the same location
-                for child_id in child_ids:
-                    dom_tree[int(parent_id)]["childIds"].insert(
-                        index, child_id
-                    )
-                    index += 1
+        #         # Insert children_nodeids in the same location
+        #         for child_id in child_ids:
+        #             dom_tree[int(parent_id)]["childIds"].insert(
+        #                 index, child_id
+        #             )
+        #             index += 1
 
-                # update children node's parent
-                for child_id in child_ids:
-                    dom_tree[int(child_id)]["parentId"] = parent_id
-                # mark as removed
-                dom_tree[int(node_id)]["parentId"] = "[REMOVED]"
+        #         # update children node's parent
+        #         for child_id in child_ids:
+        #             dom_tree[int(child_id)]["parentId"] = parent_id
+        #         # mark as removed
+        #         dom_tree[int(node_id)]["parentId"] = "[REMOVED]"
 
-            config = info["config"]
-            for cursor, node in enumerate(dom_tree):
-                if not node["union_bound"]:
-                    remove_node_in_graph(node)
-                    continue
+        #     config = info["config"]
+        #     for cursor, node in enumerate(dom_tree):
+        #         if not node["union_bound"]:
+        #             remove_node_in_graph(node)
+        #             continue
 
-                [x, y, width, height] = node["union_bound"]
+        #         [x, y, width, height] = node["union_bound"]
 
-                # invisible node
-                if width == 0.0 or height == 0.0:
-                    remove_node_in_graph(node)
-                    continue
+        #         # invisible node
+        #         if width == 0.0 or height == 0.0:
+        #             remove_node_in_graph(node)
+        #             continue
 
-                in_viewport_ratio = self.get_element_in_viewport_ratio(
-                    elem_left_bound=float(x),
-                    elem_top_bound=float(y),
-                    width=float(width),
-                    height=float(height),
-                    config=config,
-                )
+        #         in_viewport_ratio = self.get_element_in_viewport_ratio(
+        #             elem_left_bound=float(x),
+        #             elem_top_bound=float(y),
+        #             width=float(width),
+        #             height=float(height),
+        #             config=config,
+        #         )
 
-                if in_viewport_ratio < IN_VIEWPORT_RATIO_THRESHOLD:
-                    remove_node_in_graph(node)
+        #         if in_viewport_ratio < IN_VIEWPORT_RATIO_THRESHOLD:
+        #             remove_node_in_graph(node)
 
-            dom_tree = [
-                node
-                for node in dom_tree
-                if node.get("parentId", "-1") != "[REMOVED]"
-            ]
+        #     dom_tree = [
+        #         node
+        #         for node in dom_tree
+        #         if node.get("parentId", "-1") != "[REMOVED]"
+        #     ]
 
         return dom_tree
 
@@ -341,7 +345,7 @@ class TextObervationProcessor(ObservationProcessor):
                 if valid_node:
                     obs_nodes_info[str(node_cursor)] = {
                         "backend_id": node["backendNodeId"],
-                        "union_bound": node["union_bound"],
+                        #"union_bound": node["union_bound"],
                         "text": node_str,
                     }
                     tree_str += f"{indent}{node_str}\n"
@@ -366,9 +370,12 @@ class TextObervationProcessor(ObservationProcessor):
         client: CDPSession,
         current_viewport_only: bool,
     ) -> AccessibilityTree:
+        time1 = time.time()
         accessibility_tree: AccessibilityTree = client.send(
             "Accessibility.getFullAXTree", {}
         )["nodes"]
+        time2 = time.time()
+        print(f"Time taken to get full AX tree: {time2 - time1} seconds")
 
         # a few nodes are repeated in the accessibility tree
         seen_ids = set()
@@ -379,94 +386,94 @@ class TextObervationProcessor(ObservationProcessor):
                 seen_ids.add(node["nodeId"])
         accessibility_tree = _accessibility_tree
 
-        nodeid_to_cursor = {}
-        for cursor, node in enumerate(accessibility_tree):
-            nodeid_to_cursor[node["nodeId"]] = cursor
-            # usually because the node is not visible etc
-            if "backendDOMNodeId" not in node:
-                node["union_bound"] = None
-                continue
-            backend_node_id = str(node["backendDOMNodeId"])
-            if node["role"]["value"] == "RootWebArea":
-                # always inside the viewport
-                node["union_bound"] = [0.0, 0.0, 10.0, 10.0]
-            else:
-                response = self.get_bounding_client_rect(
-                    client, backend_node_id
-                )
-                if response.get("result", {}).get("subtype", "") == "error":
-                    node["union_bound"] = None
-                else:
-                    x = response["result"]["value"]["x"]
-                    y = response["result"]["value"]["y"]
-                    width = response["result"]["value"]["width"]
-                    height = response["result"]["value"]["height"]
-                    node["union_bound"] = [x, y, width, height]
+        # nodeid_to_cursor = {}
+        # for cursor, node in enumerate(accessibility_tree):
+        #     nodeid_to_cursor[node["nodeId"]] = cursor
+        #     # usually because the node is not visible etc
+        #     if "backendDOMNodeId" not in node:
+        #         node["union_bound"] = None
+        #         continue
+        #     backend_node_id = str(node["backendDOMNodeId"])
+        #     if node["role"]["value"] == "RootWebArea":
+        #         # always inside the viewport
+        #         node["union_bound"] = [0.0, 0.0, 10.0, 10.0]
+        #     else:
+        #         response = self.get_bounding_client_rect(
+        #             client, backend_node_id
+        #         )
+        #         if response.get("result", {}).get("subtype", "") == "error":
+        #             node["union_bound"] = None
+        #         else:
+        #             x = response["result"]["value"]["x"]
+        #             y = response["result"]["value"]["y"]
+        #             width = response["result"]["value"]["width"]
+        #             height = response["result"]["value"]["height"]
+        #             node["union_bound"] = [x, y, width, height]
 
-        # filter nodes that are not in the current viewport
-        if current_viewport_only:
+        # # filter nodes that are not in the current viewport
+        # if current_viewport_only:
 
-            def remove_node_in_graph(node: AccessibilityTreeNode) -> None:
-                # update the node information in the accessibility tree
-                nodeid = node["nodeId"]
-                node_cursor = nodeid_to_cursor[nodeid]
-                parent_nodeid = node["parentId"]
-                children_nodeids = node["childIds"]
-                parent_cursor = nodeid_to_cursor[parent_nodeid]
-                # update the children of the parent node
-                assert (
-                    accessibility_tree[parent_cursor].get("parentId", "Root")
-                    is not None
-                )
-                # remove the nodeid from parent's childIds
-                index = accessibility_tree[parent_cursor]["childIds"].index(
-                    nodeid
-                )
-                accessibility_tree[parent_cursor]["childIds"].pop(index)
-                # Insert children_nodeids in the same location
-                for child_nodeid in children_nodeids:
-                    accessibility_tree[parent_cursor]["childIds"].insert(
-                        index, child_nodeid
-                    )
-                    index += 1
-                # update children node's parent
-                for child_nodeid in children_nodeids:
-                    child_cursor = nodeid_to_cursor[child_nodeid]
-                    accessibility_tree[child_cursor][
-                        "parentId"
-                    ] = parent_nodeid
-                # mark as removed
-                accessibility_tree[node_cursor]["parentId"] = "[REMOVED]"
+        #     def remove_node_in_graph(node: AccessibilityTreeNode) -> None:
+        #         # update the node information in the accessibility tree
+        #         nodeid = node["nodeId"]
+        #         node_cursor = nodeid_to_cursor[nodeid]
+        #         parent_nodeid = node["parentId"]
+        #         children_nodeids = node["childIds"]
+        #         parent_cursor = nodeid_to_cursor[parent_nodeid]
+        #         # update the children of the parent node
+        #         assert (
+        #             accessibility_tree[parent_cursor].get("parentId", "Root")
+        #             is not None
+        #         )
+        #         # remove the nodeid from parent's childIds
+        #         index = accessibility_tree[parent_cursor]["childIds"].index(
+        #             nodeid
+        #         )
+        #         accessibility_tree[parent_cursor]["childIds"].pop(index)
+        #         # Insert children_nodeids in the same location
+        #         for child_nodeid in children_nodeids:
+        #             accessibility_tree[parent_cursor]["childIds"].insert(
+        #                 index, child_nodeid
+        #             )
+        #             index += 1
+        #         # update children node's parent
+        #         for child_nodeid in children_nodeids:
+        #             child_cursor = nodeid_to_cursor[child_nodeid]
+        #             accessibility_tree[child_cursor][
+        #                 "parentId"
+        #             ] = parent_nodeid
+        #         # mark as removed
+        #         accessibility_tree[node_cursor]["parentId"] = "[REMOVED]"
 
-            config = info["config"]
-            for node in accessibility_tree:
-                if not node["union_bound"]:
-                    remove_node_in_graph(node)
-                    continue
+        #     config = info["config"]
+        #     for node in accessibility_tree:
+        #         if not node["union_bound"]:
+        #             remove_node_in_graph(node)
+        #             continue
 
-                [x, y, width, height] = node["union_bound"]
+        #         [x, y, width, height] = node["union_bound"]
 
-                # invisible node
-                if width == 0 or height == 0:
-                    remove_node_in_graph(node)
-                    continue
+        #         # invisible node
+        #         if width == 0 or height == 0:
+        #             remove_node_in_graph(node)
+        #             continue
 
-                in_viewport_ratio = self.get_element_in_viewport_ratio(
-                    elem_left_bound=float(x),
-                    elem_top_bound=float(y),
-                    width=float(width),
-                    height=float(height),
-                    config=config,
-                )
+        #         in_viewport_ratio = self.get_element_in_viewport_ratio(
+        #             elem_left_bound=float(x),
+        #             elem_top_bound=float(y),
+        #             width=float(width),
+        #             height=float(height),
+        #             config=config,
+        #         )
 
-                if in_viewport_ratio < IN_VIEWPORT_RATIO_THRESHOLD:
-                    remove_node_in_graph(node)
+        #         if in_viewport_ratio < IN_VIEWPORT_RATIO_THRESHOLD:
+        #             remove_node_in_graph(node)
 
-            accessibility_tree = [
-                node
-                for node in accessibility_tree
-                if node.get("parentId", "Root") != "[REMOVED]"
-            ]
+        #     accessibility_tree = [
+        #         node
+        #         for node in accessibility_tree
+        #         if node.get("parentId", "Root") != "[REMOVED]"
+        #     ]
 
         return accessibility_tree
 
@@ -532,7 +539,7 @@ class TextObervationProcessor(ObservationProcessor):
                     tree_str += f"{indent}{node_str}"
                     obs_nodes_info[obs_node_id] = {
                         "backend_id": node["backendDOMNodeId"],
-                        "union_bound": node["union_bound"],
+                        #"union_bound": node["union_bound"],
                         "text": node_str,
                     }
 
@@ -580,6 +587,7 @@ class TextObervationProcessor(ObservationProcessor):
 
         return "\n".join(clean_lines)
 
+    @time_logger
     def process(self, page: Page, client: CDPSession) -> str:
         # get the tab info
         open_tabs = page.context.pages
@@ -638,10 +646,16 @@ class TextObervationProcessor(ObservationProcessor):
         content = f"{tab_title_str}\n\n{content}"
         return content
 
-    def get_element_center(self, element_id: str) -> tuple[float, float]:
+
+    def get_element_center(self, client, element_id: str) -> tuple[float, float]:
         node_info = self.obs_nodes_info[element_id]
-        node_bound = node_info["union_bound"]
-        x, y, width, height = node_bound
+        #node_bound = node_info["union_bound"]
+        response = self.get_bounding_client_rect(client, str(node_info["backend_id"]))
+        x = response["result"]["value"]["x"]
+        y = response["result"]["value"]["y"]
+        width = response["result"]["value"]["width"]
+        height = response["result"]["value"]["height"]
+        #x, y, width, height = node_bound
         center_x = x + width / 2
         center_y = y + height / 2
         return (
@@ -656,6 +670,7 @@ class ImageObservationProcessor(ObservationProcessor):
         self.observation_tag = "image"
         self.meta_data = create_empty_metadata()
 
+    @time_logger
     def process(self, page: Page, client: CDPSession) -> npt.NDArray[np.uint8]:
         try:
             screenshot = png_bytes_to_numpy(page.screenshot())

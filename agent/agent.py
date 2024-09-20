@@ -1,3 +1,4 @@
+
 import os
 import argparse
 import json
@@ -6,6 +7,7 @@ from typing import Any
 import tiktoken
 from beartype import beartype
 
+from utilities.utils import time_logger
 from agent.prompts import *
 from browser_env import Trajectory
 from browser_env.actions import (
@@ -230,6 +232,7 @@ class CustomAgent(Agent):
     #     byte_io.seek(0)
     #     return base64.b64encode(byte_io.read()).decode("utf-8")
 
+    @time_logger
     @beartype
     def next_action(
         self, trajectory: Trajectory, intent: str, meta_data: dict[str, Any]
