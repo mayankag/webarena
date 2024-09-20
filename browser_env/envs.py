@@ -172,14 +172,12 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
     def get_page_client(self, page: Page) -> CDPSession:
         return page.client  # type: ignore
 
-    @time_logger
     def _get_obs(self) -> dict[str, Observation]:
         obs = self.observation_handler.get_observation(
             self.page, self.get_page_client(self.page)
         )
         return obs
 
-    @time_logger
     def _get_obs_metadata(self) -> dict[str, ObservationMetadata]:
         metadata = self.observation_handler.get_observation_metadata()
         return metadata
@@ -202,9 +200,6 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
         if self.reset_finished:
             self.context_manager.__exit__()
 
-        time2 = time.time()
-        print(f"Inside Reset: Time taken to reset: {time2 - time1} seconds")
-
         if options is not None and "config_file" in options:
             config_file = Path(options["config_file"])
             if config_file.exists():
@@ -214,8 +209,8 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
         else:
             self.setup()
         self.reset_finished = True
-        time3 = time.time()
-        print(f"Inside Reset: Time taken to setup: {time3 - time2} seconds")
+        time2 = time.time()
+        print(f"Inside Reset: Time taken to setup: {time2 - time1} seconds")
 
         if self.sleep_after_execution > 0:
             time.sleep(self.sleep_after_execution)

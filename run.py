@@ -421,7 +421,7 @@ def dump_config(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     args = config()
-    args.sleep_after_execution = 1.0
+    args.sleep_after_execution = 0.1
     prepare(args)
 
     test_file_list = []

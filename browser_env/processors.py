@@ -4,7 +4,6 @@ import time
 from collections import defaultdict
 from typing import Any, TypedDict, Union
 
-from utilities.utils import time_logger
 import numpy as np
 import numpy.typing as npt
 from gymnasium import spaces
@@ -61,7 +60,6 @@ class TextObervationProcessor(ObservationProcessor):
             create_empty_metadata()
         )  # use the store meta data of this observation type
 
-    @time_logger
     def fetch_browser_info(
         self,
         page: Page,
@@ -110,7 +108,6 @@ class TextObervationProcessor(ObservationProcessor):
         return info
 
     @staticmethod
-    @time_logger
     def get_bounding_client_rect(
         client: CDPSession, backend_node_id: str
     ) -> dict[str, Any]:
@@ -370,12 +367,9 @@ class TextObervationProcessor(ObservationProcessor):
         client: CDPSession,
         current_viewport_only: bool,
     ) -> AccessibilityTree:
-        time1 = time.time()
         accessibility_tree: AccessibilityTree = client.send(
             "Accessibility.getFullAXTree", {}
         )["nodes"]
-        time2 = time.time()
-        print(f"Time taken to get full AX tree: {time2 - time1} seconds")
 
         # a few nodes are repeated in the accessibility tree
         seen_ids = set()
@@ -587,7 +581,6 @@ class TextObervationProcessor(ObservationProcessor):
 
         return "\n".join(clean_lines)
 
-    @time_logger
     def process(self, page: Page, client: CDPSession) -> str:
         # get the tab info
         open_tabs = page.context.pages
@@ -670,7 +663,6 @@ class ImageObservationProcessor(ObservationProcessor):
         self.observation_tag = "image"
         self.meta_data = create_empty_metadata()
 
-    @time_logger
     def process(self, page: Page, client: CDPSession) -> npt.NDArray[np.uint8]:
         try:
             screenshot = png_bytes_to_numpy(page.screenshot())
